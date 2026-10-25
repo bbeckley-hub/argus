@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARGUS — ESKAPE Genomic Surveillance</title>
+<meta name="description" content="ARGUS — one family, seven ESKAPE pathogens. An open, serverless, accession-first genomic surveillance platform.">
+<script>
+(function(){
+    try {
+        var t = localStorage.getItem('argus-theme');
+        if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+    } catch(e){}
+})();
+</script>
+<style>
+:root {
+    color-scheme: light;
+    --bg: #ffffff; --bg-2: #f8fafc; --bg-3: #f1f5f9;
+    --card: #ffffff; --line: #e2e8f0; --line-2: #cbd5e1;
+    --fg: #0f172a; --fg-2: #334155; --fg-3: #64748b; --fg-4: #94a3b8;
+    --gold: #b8941f; --gold-2: #d4af37; --gold-soft: #fef8e7;
+    --dark: #0a1628;
+    --shadow-1: 0 1px 3px rgba(15,23,42,0.06);
+    --shadow-2: 0 4px 12px rgba(15,23,42,0.08);
+    --shadow-3: 0 20px 40px rgba(15,23,42,0.12);
+}
+[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0a1628; --bg-2: #0f1c31; --bg-3: #051020;
+    --card: #16233a; --line: #2a3d5a; --line-2: #3d5273;
+    --fg: #f1f5f9; --fg-2: #cbd5e1; --fg-3: #94a3b8; --fg-4: #64748b;
+    --gold: #d4af37; --gold-2: #f6c453; --gold-soft: #2a2109;
+    --dark: #f1f5f9;
+    --shadow-1: 0 1px 3px rgba(0,0,0,0.4);
+    --shadow-2: 0 4px 12px rgba(0,0,0,0.5);
+    --shadow-3: 0 20px 40px rgba(0,0,0,0.7);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--fg); line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.25s ease, color 0.25s ease;
+}
+
+.skip-link {
+    position: absolute; left: -9999px; top: 0; z-index: 9999;
+    background: var(--gold); color: #0a1628;
+    padding: 12px 20px; font-weight: 700; border-radius: 0 0 8px 0;
+    text-decoration: none;
+}
+.skip-link:focus { left: 0; }
+
+.scroll-progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    background: linear-gradient(90deg, var(--gold), var(--gold-2));
+    z-index: 1000; transition: width 0.05s linear;
+    pointer-events: none;
+}
+
+.back-to-top {
+    position: fixed; right: 24px; bottom: 24px; z-index: 99;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--gold); color: #0a1628; border: none;
+    font-size: 1.3em; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-2);
+    opacity: 0; visibility: hidden; transform: translateY(12px);
+    transition: opacity 0.3s, visibility 0.3s, transform 0.3s, background 0.2s;
+    font-family: inherit;
+}
+.back-to-top.visible { opacity: 1; visibility: visible; transform: translateY(0); }
+.back-to-top:hover { background: var(--gold-2); transform: translateY(-4px); box-shadow: var(--shadow-3); }
+.back-to-top:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
+
+/* ── Nav ── */
+.nav {
+    position: sticky; top: 0; z-index: 100;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+}
+.nav-brand {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+    text-decoration: none; flex-shrink: 0;
+}
+.nav-brand-name {
+    font-size: 2.2em; font-weight: 900; letter-spacing: 3px;
+    color: var(--gold); line-height: 1;
+}
+.nav-brand-tag {
+    font-size: 0.82em; color: var(--fg-3); letter-spacing: 0.5px;
+    line-height: 1.1;
+}
+.nav-links { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.nav-link {
+    color: var(--fg-3); text-decoration: none; padding: 8px 14px;
+    border-radius: 8px; font-size: 0.92em; font-weight: 600;
+    transition: all 0.15s;
+}
+.nav-link:hover { color: var(--fg); background: var(--bg-2); }
+.nav-link.active { color: var(--gold); background: var(--gold-soft); }
+.nav-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.nav-link-ext { color: var(--fg-3); font-size: 0.85em; }
+.theme-toggle {
+    background: var(--bg-2); border: 1px solid var(--line);
+    color: var(--fg); width: 40px; height: 40px; border-radius: 10px;
+    cursor: pointer; font-size: 1.1em; margin-left: 8px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; font-family: inherit;
+}
+.theme-toggle:hover { background: var(--bg-3); border-color: var(--gold); transform: scale(1.05); }
+.theme-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ── Hero ── */
+.hero {
+    padding: 90px 24px 70px; text-align: center;
+    background: var(--bg); position: relative; overflow: hidden;
+}
+.hero::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, var(--gold-soft) 0%, transparent 55%);
+    pointer-events: none;
+}
+.hero-inner { position: relative; max-width: 900px; margin: 0 auto; }
+.hero-badge {
+    display: inline-block; padding: 6px 14px; border-radius: 20px;
+    background: var(--gold-soft); color: var(--gold);
+    font-size: 0.75em; font-weight: 800; letter-spacing: 1.5px;
+    text-transform: uppercase; margin-bottom: 24px;
+    border: 1px solid color-mix(in srgb, var(--gold) 25%, transparent);
+}
+.hero h1 {
+    font-size: 4em; font-weight: 900; letter-spacing: -1px;
+    color: var(--fg); line-height: 1.05; margin-bottom: 16px;
+    animation: fadeUp 0.8s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.hero h1 span { color: var(--gold); }
+.hero .tagline {
+    font-size: 1.35em; color: var(--fg-2); margin-bottom: 20px;
+    font-weight: 400; max-width: 700px; margin-left: auto; margin-right: auto;
+    animation: fadeUp 0.8s cubic-bezier(0.2, 0.9, 0.3, 1) 0.1s both;
+}
+.hero .desc {
+    font-size: 1.02em; color: var(--fg-3); line-height: 1.7;
+    max-width: 680px; margin: 0 auto 36px;
+    animation: fadeUp 0.8s cubic-bezier(0.2, 0.9, 0.3, 1) 0.2s both;
+}
+.hero-ctas {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    animation: fadeUp 0.8s cubic-bezier(0.2, 0.9, 0.3, 1) 0.3s both;
+}
+.btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 13px 26px; border-radius: 10px;
+    font-size: 0.98em; font-weight: 700; text-decoration: none;
+    transition: all 0.2s; font-family: inherit; border: none; cursor: pointer;
+}
+.btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.btn-primary {
+    background: var(--gold); color: #0a1628;
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--gold) 40%, transparent);
+}
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--gold) 55%, transparent);
+    background: var(--gold-2);
+}
+.btn-secondary { background: var(--bg-2); color: var(--fg); border: 1.5px solid var(--line-2); }
+.btn-secondary:hover { border-color: var(--gold); color: var(--gold); }
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Quote banner ── */
+.quote-banner {
+    background: var(--bg-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    padding: 48px 24px 40px; text-align: center;
+}
+.quote-inner {
+    max-width: 780px; margin: 0 auto; min-height: 120px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+}
+.quote-mark {
+    font-size: 3em; line-height: 1; color: var(--gold);
+    opacity: 0.4; font-family: Georgia, serif; margin-bottom: -8px;
+}
+.quote-text {
+    font-size: 1.3em; font-style: italic; color: var(--fg);
+    line-height: 1.55; font-weight: 400;
+    transition: opacity 0.5s ease;
+    max-width: 720px; margin-bottom: 14px;
+}
+.quote-author {
+    font-size: 0.85em; color: var(--gold); font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    transition: opacity 0.5s ease;
+}
+.quote-dots { display: flex; justify-content: center; gap: 6px; margin-top: 18px; flex-wrap: wrap; max-width: 500px; }
+.quote-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--line-2); transition: all 0.3s; cursor: pointer; border: none; padding: 0;
+}
+.quote-dot:hover { background: var(--gold-2); }
+.quote-dot:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.quote-dot.active { background: var(--gold); width: 22px; border-radius: 3px; }
+.quote-banner.fading .quote-text,
+.quote-banner.fading .quote-author { opacity: 0; }
+
+/* ── Sections ── */
+.section { padding: 80px 24px; }
+.section.alt { background: var(--bg-2); }
+.section-inner { max-width: 1100px; margin: 0 auto; }
+.section-eyebrow {
+    display: inline-block; padding: 4px 12px; border-radius: 6px;
+    font-size: 0.75em; font-weight: 800; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--gold);
+    background: var(--gold-soft); margin-bottom: 14px;
+}
+.section h2 {
+    font-size: 2.2em; font-weight: 900; letter-spacing: -0.5px;
+    color: var(--fg); margin-bottom: 12px; line-height: 1.15;
+}
+.section-sub {
+    color: var(--fg-3); font-size: 1.05em; max-width: 780px;
+    margin-bottom: 40px; line-height: 1.65;
+}
+
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 30px; }
+.compare-col {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 28px 26px; box-shadow: var(--shadow-1);
+}
+.compare-col.old { border-top: 4px solid #ef4444; }
+.compare-col.new { border-top: 4px solid var(--gold); }
+.compare-col h3 {
+    font-size: 1.15em; font-weight: 800; color: var(--fg);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 10px;
+}
+.compare-col.old h3 .pill { background: #fee2e2; color: #b91c1c; }
+.compare-col.new h3 .pill { background: var(--gold-soft); color: var(--gold); }
+.pill {
+    font-size: 0.7em; padding: 3px 10px; border-radius: 20px;
+    font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+}
+.compare-col ul { list-style: none; }
+.compare-col li {
+    padding: 10px 0; color: var(--fg-2); font-size: 0.95em;
+    border-bottom: 1px dashed var(--line);
+    display: flex; gap: 10px; align-items: flex-start;
+}
+.compare-col li:last-child { border-bottom: none; }
+.compare-col li::before {
+    content: ''; flex-shrink: 0; width: 6px; height: 6px;
+    border-radius: 50%; margin-top: 9px;
+}
+.compare-col.old li::before { background: #ef4444; }
+.compare-col.new li::before { background: var(--gold); }
+
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px; }
+.step {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 24px 20px; box-shadow: var(--shadow-1);
+    transition: all 0.25s; position: relative;
+}
+.step:hover { transform: translateY(-4px); box-shadow: var(--shadow-2); border-color: var(--gold); }
+.step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--gold); color: #0a1628;
+    font-weight: 900; font-size: 0.95em; margin-bottom: 14px;
+}
+.step h4 { font-size: 1.05em; color: var(--fg); margin-bottom: 8px; font-weight: 800; }
+.step p { font-size: 0.9em; color: var(--fg-3); line-height: 1.55; }
+
+.family-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px; margin-top: 30px;
+}
+.platform-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 24px 22px;
+    text-decoration: none; color: inherit;
+    display: flex; flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+    position: relative; overflow: hidden; box-shadow: var(--shadow-1);
+}
+.platform-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 100% 0%, var(--pc) 0%, transparent 60%);
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+.platform-card.live:hover {
+    transform: translateY(-6px);
+    border-color: var(--pc);
+    box-shadow: var(--shadow-3), 0 0 0 1px var(--pc);
+}
+.platform-card.live:hover::before { opacity: 0.12; }
+.platform-card:focus-visible { outline: 3px solid var(--pc); outline-offset: 4px; }
+.platform-card.planned { opacity: 0.7; cursor: not-allowed; }
+.platform-card.planned:hover { opacity: 0.9; }
+.pc-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; position: relative; z-index: 1; }
+.pc-emoji { font-size: 2.4em; line-height: 1; flex-shrink: 0; transition: transform 0.3s; }
+.platform-card.live:hover .pc-emoji { transform: scale(1.1) rotate(-4deg); }
+.pc-name { font-size: 1.35em; font-weight: 900; letter-spacing: 1px; color: var(--pc); line-height: 1; }
+.pc-species { font-size: 0.85em; color: var(--fg-3); font-style: italic; margin-top: 4px; }
+.pc-desc { font-size: 0.9em; color: var(--fg-2); line-height: 1.55; margin-bottom: 16px; flex-grow: 1; position: relative; z-index: 1; }
+.pc-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-top: 14px; border-top: 1px solid var(--line);
+    position: relative; z-index: 1;
+}
+.pc-status {
+    font-size: 0.7em; font-weight: 800; letter-spacing: 1px;
+    text-transform: uppercase; padding: 4px 10px; border-radius: 20px;
+}
+.pc-status.live { background: rgba(34,197,94,0.15); color: #16a34a; position: relative; padding-left: 22px; }
+.pc-status.live::before {
+    content: ''; position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+    width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+    animation: livePulse 2s ease-in-out infinite;
+}
+@keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.pc-status.progress { background: rgba(245,158,11,0.15); color: #d97706; }
+.pc-status.planned { background: var(--bg-3); color: var(--fg-3); }
+[data-theme="dark"] .pc-status.live { color: #34d399; }
+[data-theme="dark"] .pc-status.progress { color: #fbbf24; }
+.pc-arrow { color: var(--pc); font-size: 1.2em; font-weight: 800; transition: transform 0.25s; }
+.platform-card.live:hover .pc-arrow { transform: translateX(6px); }
+
+.callout {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 4px solid var(--gold); border-radius: 12px;
+    padding: 24px 28px; box-shadow: var(--shadow-1); margin: 24px 0;
+}
+.callout-label {
+    font-size: 0.75em; font-weight: 800; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--gold); margin-bottom: 10px;
+}
+.callout p { color: var(--fg-2); font-size: 1em; line-height: 1.7; margin-bottom: 10px; }
+.callout p:last-child { margin-bottom: 0; }
+.callout em { color: var(--fg); }
+
+.funding-box {
+    background: var(--card); border: 1px solid var(--line);
+    border-top: 4px solid var(--gold); border-radius: 14px;
+    padding: 28px 32px; box-shadow: var(--shadow-1);
+    max-width: 900px;
+}
+.funding-box h3 {
+    font-size: 1.15em; font-weight: 800; color: var(--gold);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 10px;
+}
+.funding-box p { color: var(--fg-2); font-size: 0.95em; line-height: 1.7; margin-bottom: 12px; }
+.funding-box p:last-child { margin-bottom: 0; }
+.funding-box strong { color: var(--fg); }
+
+.cite {
+    background: var(--gold-soft); border-left: 4px solid var(--gold);
+    border-radius: 12px; padding: 26px 30px; max-width: 900px;
+}
+.cite h3 { color: var(--gold); font-size: 1.05em; margin-bottom: 12px; font-weight: 800; }
+.cite p { color: var(--fg-2); font-size: 0.92em; line-height: 1.7; margin-bottom: 10px; }
+.cite a { color: var(--gold); font-weight: 700; text-decoration: none; border-bottom: 1px dotted var(--gold); }
+.cite a:hover { border-bottom-style: solid; }
+
+.timeline { position: relative; padding-left: 32px; margin-top: 24px; }
+.timeline::before {
+    content: ''; position: absolute; left: 10px; top: 8px; bottom: 8px;
+    width: 2px; background: var(--line-2);
+}
+.tl-item { position: relative; margin-bottom: 32px; }
+.tl-item::before {
+    content: ''; position: absolute; left: -32px; top: 6px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--bg); border: 3px solid var(--gold);
+    box-shadow: 0 0 0 3px var(--bg);
+}
+.tl-item.done::before { background: var(--gold); }
+.tl-item h4 { color: var(--gold); font-size: 1.15em; margin-bottom: 6px; font-weight: 800; }
+.tl-item p { color: var(--fg-3); font-size: 0.95em; margin: 0; }
+
+.roadmap { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 24px; }
+.road-row {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px;
+    display: grid; grid-template-columns: 200px 140px 1fr;
+    align-items: center; gap: 16px; box-shadow: var(--shadow-1);
+    transition: all 0.2s;
+}
+.road-row:hover { transform: translateX(4px); border-color: var(--pc, var(--gold)); }
+.road-name { display: flex; align-items: center; gap: 10px; font-weight: 800; color: var(--fg); }
+.road-name .emoji { font-size: 1.5em; line-height: 1; }
+.road-name .nm { color: var(--pc, var(--gold)); letter-spacing: 1px; }
+.road-name .sp {
+    font-size: 0.85em; color: var(--fg-3); font-style: italic;
+    font-weight: 400; display: block; letter-spacing: 0;
+}
+.road-status { font-size: 0.8em; font-weight: 700; color: var(--fg-3); }
+.road-milestone { font-size: 0.9em; color: var(--fg-2); }
+@media (max-width: 700px) { .road-row { grid-template-columns: 1fr; gap: 6px; } }
+
+.repo-list { list-style: none; margin-top: 18px; }
+.repo-list li {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 18px; margin-bottom: 10px;
+    transition: all 0.2s;
+}
+.repo-list li:hover { border-color: var(--gold); transform: translateX(4px); }
+.repo-list li::before { content: '📦'; font-size: 1.2em; flex-shrink: 0; }
+.repo-list a { color: var(--fg); font-weight: 600; text-decoration: none; border-bottom: none; flex: 1; }
+.repo-list a:hover { color: var(--gold); }
+.repo-list .lang { font-size: 0.75em; color: var(--fg-4); font-weight: 600; }
+
+.cite-grid { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+.cite-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 22px 24px;
+    box-shadow: var(--shadow-1); position: relative; overflow: hidden;
+}
+.cite-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 4px; background: var(--accent, var(--gold));
+}
+.cite-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.cite-emoji { font-size: 1.6em; line-height: 1; }
+.cite-platform { font-weight: 900; letter-spacing: 1px; color: var(--accent, var(--gold)); font-size: 1em; }
+.cite-role {
+    font-size: 0.72em; font-weight: 800; letter-spacing: 1px;
+    text-transform: uppercase; padding: 3px 10px; border-radius: 20px;
+    background: var(--bg-3); color: var(--fg-3);
+}
+.cite-body { font-size: 0.95em; color: var(--fg-2); line-height: 1.65; margin-bottom: 14px; }
+.cite-footer {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding-top: 12px; border-top: 1px dashed var(--line);
+}
+.cite-doi {
+    font-size: 0.85em; color: var(--accent, var(--gold));
+    font-weight: 700; text-decoration: none;
+    border-bottom: 1px dotted var(--accent, var(--gold));
+}
+.cite-doi:hover { border-bottom-style: solid; }
+.copy-btn {
+    margin-left: auto;
+    background: var(--bg-3); border: 1px solid var(--line);
+    color: var(--fg-3); padding: 6px 14px; border-radius: 8px;
+    font-size: 0.8em; font-weight: 700; cursor: pointer;
+    font-family: inherit; transition: all 0.2s;
+}
+.copy-btn:hover { background: var(--gold); color: #0a1628; border-color: var(--gold); }
+.copy-btn.copied { background: #16a34a; color: white; border-color: #16a34a; }
+.copy-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.footer {
+    background: var(--bg-2); border-top: 1px solid var(--line);
+    padding: 40px 24px; text-align: center;
+    color: var(--fg-3); font-size: 0.88em;
+}
+.footer-brand {
+    color: var(--gold); font-weight: 900; letter-spacing: 1px;
+    font-size: 1.05em; margin-bottom: 8px;
+}
+.footer a { color: var(--gold); text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
+.footer-meta { margin-top: 10px; color: var(--fg-4); font-size: 0.85em; }
+
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal.revealed { opacity: 1; transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+@media (max-width: 800px) {
+    .nav { padding: 12px 16px; flex-wrap: wrap; }
+    .nav-brand-name { font-size: 1.7em; letter-spacing: 2px; }
+    .nav-brand-tag { font-size: 0.72em; }
+    .nav-links { flex-wrap: wrap; gap: 2px; }
+    .nav-link { padding: 6px 10px; font-size: 0.85em; }
+    .hero { padding: 60px 20px 50px; }
+    .hero h1 { font-size: 2.6em; }
+    .hero .tagline { font-size: 1.05em; }
+    .section { padding: 56px 20px; }
+    .section h2 { font-size: 1.7em; }
+    .compare-grid { grid-template-columns: 1fr; }
+    .back-to-top { right: 16px; bottom: 16px; width: 44px; height: 44px; }
+    .callout, .funding-box { padding: 20px 22px; }
+}
+</style>
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to content</a>
+<div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
+
+
+    <nav class="nav">
+        <a class="nav-brand" href="index.html">
+            <span class="nav-brand-name">ARGUS</span>
+            <span class="nav-brand-tag">Antimicrobial Resistance Genomic Unified Surveillance</span>
+        </a>
+        <div class="nav-links"><a class="nav-link active" href="index.html" aria-current="page">Platforms</a><a class="nav-link" href="vision.html">Vision</a><a class="nav-link" href="resources.html">Resources</a><a class="nav-link nav-link-ext" href="https://github.com/bbeckley-hub" target="_blank" rel="noopener">GitHub ↗</a><button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">🌙</button></div>
+    </nav>
+
+<main id="main">
+
+<header class="hero">
+    <div class="hero-inner">
+        <span class="hero-badge">Open Genomic Surveillance</span>
+        <h1>Welcome to <span>ARGUS</span></h1>
+        <p class="tagline">One family. Seven ESKAPE pathogens. One accession-first workflow.</p>
+        <p class="desc">
+            An open, serverless genomic surveillance platform for the WHO priority ESKAPE pathogens.
+            No installation. No login. No API key. Just filter, verify, and export your accession list.
+        </p>
+        <div class="hero-ctas">
+            <a class="btn btn-primary" href="#family">Explore the family →</a>
+            <a class="btn btn-secondary" href="vision.html">Read our vision</a>
+            <a class="btn btn-secondary" href="resources.html">Resources &amp; citation</a>
+        </div>
+    </div>
+</header>
+
+<section class="quote-banner" id="quote-banner">
+    <div class="quote-inner">
+        <div class="quote-mark">"</div>
+        <p class="quote-text" id="quote-text">Loading inspiration…</p>
+        <p class="quote-author" id="quote-author"></p>
+    </div>
+    <div class="quote-dots" id="quote-dots"></div>
+</section>
+
+<section class="section reveal" id="problem">
+    <div class="section-inner">
+        <span class="section-eyebrow">The bottleneck</span>
+        <h2>Finding the right genomes should not be this hard.</h2>
+        <p class="section-sub">
+            The exponential growth of publicly available pathogen genomes has created an
+            unprecedented opportunity for genomic epidemiology. Yet a persistent bottleneck
+            remains: retrieving a defined subset of genomes that match specific genotypic
+            or epidemiological criteria.
+        </p>
+
+        <div class="compare-grid">
+            <div class="compare-col old">
+                <h3><span class="pill">Old way</span> Hours of scripting before science</h3>
+                <ul>
+                    <li>Download static compressed TSVs from five different sources</li>
+                    <li>Manually join tables by accession — mismatch errors guaranteed</li>
+                    <li>Write Python scripts to filter genotype and metadata separately</li>
+                    <li>Debug the pipeline when a column name changes</li>
+                    <li>Query again from scratch for each new criterion</li>
+                    <li>Duplicate data across tools and pipelines</li>
+                </ul>
+            </div>
+            <div class="compare-col new">
+                <h3><span class="pill">ARGUS way</span> Minutes from query to accession list</h3>
+                <ul>
+                    <li>Open one interactive browser page — no install, no login</li>
+                    <li>Stack filters across genotype, geography, and metadata in one query</li>
+                    <li>Watch matching counts update live as you narrow the search</li>
+                    <li>Export a clean plain-text accession list with one click</li>
+                    <li>Feed directly into NCBI Datasets for genome retrieval</li>
+                    <li>Every annotation, every metadata field — one architecture</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section alt reveal">
+    <div class="section-inner">
+        <span class="section-eyebrow">The solution</span>
+        <h2>Four steps from query to genome.</h2>
+        <p class="section-sub">
+            Every ARGUS platform is built around the same workflow — the actual downstream
+            deliverable, a clean accession list, sits at the centre of the interface.
+        </p>
+        <div class="steps">
+            <div class="step"><span class="step-num">1</span><h4>Filter</h4><p>Stack filters across genotype, geography, and metadata. Sequence type, resistance gene, country, source, year — all in one place.</p></div>
+            <div class="step"><span class="step-num">2</span><h4>Verify</h4><p>See live counts, distribution charts, and lineage context before you download anything. Confirm the query returns what you need.</p></div>
+            <div class="step"><span class="step-num">3</span><h4>Export</h4><p>One click downloads a plain-text accession list. No scripting. No API keys. No CSV wrangling. Just one ID per line.</p></div>
+            <div class="step"><span class="step-num">4</span><h4>Download</h4><p>Feed the list to NCBI Datasets and retrieve the underlying assemblies. Every platform is designed around this final step.</p></div>
+        </div>
+    </div>
+</section>
+
+<section class="section reveal" id="family">
+    <div class="section-inner">
+        <span class="section-eyebrow">The family</span>
+        <h2>Seven ESKAPE pathogens. One architecture.</h2>
+        <p class="section-sub">
+            Each platform is a species-specific resource with its own name, its own DOI,
+            its own release cycle, and its own community of users — but they all share
+            the same accession-first, serverless, metadata-integrated foundation.
+        </p>
+        <div class="family-grid">
+            
+        <a href="https://bbeckley-hub.github.io/saurus/" target="_blank" rel="noopener" class="platform-card live reveal" style="--pc: #3b82f6;">
+            <div class="pc-head">
+                <span class="pc-emoji">🦖</span>
+                <div>
+                    <div class="pc-name">SAURUS</div>
+                    <div class="pc-species">Staphylococcus aureus</div>
+                </div>
+            </div>
+            <div class="pc-desc">Typing, gene retrieval, and metadata for public S. aureus genomes.</div>
+            <div class="pc-footer">
+                <span class="pc-status live">Live</span>
+                <span class="pc-arrow">→</span>
+            </div>
+        </a>
+
+        <a href="https://bbeckley-hub.github.io/eclipse/" target="_blank" rel="noopener" class="platform-card live reveal" style="--pc: #7c3aed;">
+            <div class="pc-head">
+                <span class="pc-emoji">🌑</span>
+                <div>
+                    <div class="pc-name">ECLIPSE</div>
+                    <div class="pc-species">Escherichia coli</div>
+                </div>
+            </div>
+            <div class="pc-desc">MLST, phylogroups, serotypes, and CHTyper for public E. coli genomes.</div>
+            <div class="pc-footer">
+                <span class="pc-status live">Live</span>
+                <span class="pc-arrow">→</span>
+            </div>
+        </a>
+
+        <a href="https://bbeckley-hub.github.io/abyss/"  class="platform-card live reveal" style="--pc: #0d9488;">
+            <div class="pc-head">
+                <span class="pc-emoji">🌊</span>
+                <div>
+                    <div class="pc-name">ABYSS</div>
+                    <div class="pc-species">Acinetobacter baumannii</div>
+                </div>
+            </div>
+            <div class="pc-desc">Pasteur MLST, IC1–IC12, KL/OCL capsules, OXA-51, and carbapenemase tracking.</div>
+            <div class="pc-footer">
+                <span class="pc-status progress">In Progress</span>
+                <span class="pc-arrow">→</span>
+            </div>
+        </a>
+
+        <div role="link" aria-disabled="true" class="platform-card planned" style="--pc: #dc2626;">
+            <div class="pc-head">
+                <span class="pc-emoji">🏆</span>
+                <div>
+                    <div class="pc-name">KLEOS</div>
+                    <div class="pc-species">Klebsiella pneumoniae</div>
+                </div>
+            </div>
+            <div class="pc-desc">Pasteur ST, wzi capsular typing, carbapenemases, and hypervirulence markers.</div>
+            <div class="pc-footer">
+                <span class="pc-status planned">Planned</span>
+                <span class="pc-arrow">·</span>
+            </div>
+        </div>
+
+        <div role="link" aria-disabled="true" class="platform-card planned" style="--pc: #06b6d4;">
+            <div class="pc-head">
+                <span class="pc-emoji">💧</span>
+                <div>
+                    <div class="pc-name">PSEUDA</div>
+                    <div class="pc-species">Pseudomonas aeruginosa</div>
+                </div>
+            </div>
+            <div class="pc-desc">MLST, O-antigen typing, intrinsic resistance, and T3SS virulence effectors.</div>
+            <div class="pc-footer">
+                <span class="pc-status planned">Planned</span>
+                <span class="pc-arrow">·</span>
+            </div>
+        </div>
+
+        <div role="link" aria-disabled="true" class="platform-card planned" style="--pc: #f59e0b;">
+            <div class="pc-head">
+                <span class="pc-emoji">👑</span>
+                <div>
+                    <div class="pc-name">EMPIRE</div>
+                    <div class="pc-species">Enterococcus faecium</div>
+                </div>
+            </div>
+            <div class="pc-desc">MLST, vanA/vanB typing, and surface protein epidemiology for VRE.</div>
+            <div class="pc-footer">
+                <span class="pc-status planned">Planned</span>
+                <span class="pc-arrow">·</span>
+            </div>
+        </div>
+
+        <div role="link" aria-disabled="true" class="platform-card planned" style="--pc: #475569;">
+            <div class="pc-head">
+                <span class="pc-emoji">🌀</span>
+                <div>
+                    <div class="pc-name">ENTROPY</div>
+                    <div class="pc-species">Enterobacter spp.</div>
+                </div>
+            </div>
+            <div class="pc-desc">Species-level ST typing, AmpC variants, and carbapenemase tracking.</div>
+            <div class="pc-footer">
+                <span class="pc-status planned">Planned</span>
+                <span class="pc-arrow">·</span>
+            </div>
+        </div>
+        </div>
+    </div>
+</section>
+
+<section class="section alt reveal">
+    <div class="section-inner">
+        <div class="cite">
+            <h3>📚 Please cite the platforms you use</h3>
+            <p>
+                Each platform carries its own citation block on its landing page and its own
+                Zenodo DOI on release. Full citation lists for every platform are on the
+                <a href="resources.html">Resources page</a>.
+            </p>
+        </div>
+    </div>
+</section>
+
+</main>
+
+<button id="back-to-top" class="back-to-top" aria-label="Back to top">↑</button>
+
+
+    <footer class="footer">
+        <div class="footer-brand">ARGUS — Antimicrobial Resistance Genomic Unified Surveillance</div>
+        <div>University of Ghana Medical School · MIT License ·
+            <a href="https://github.com/bbeckley-hub" target="_blank" rel="noopener">GitHub</a> ·
+            <a href="mailto:brownbeckley94@gmail.com">Contact</a>
+        </div>
+        <div class="footer-meta">Portal v0.1.0 · last updated 2026-10-20 08:55 UTC</div>
+    </footer>
+
+<!-- extra_js runs first so it can define globals the shared JS depends on -->
+<script>window.__ARGUS_QUOTES__ = [{"text": "Imagination is more important than knowledge.", "author": "Albert Einstein"}, {"text": "Nothing in life is to be feared, it is only to be understood.", "author": "Marie Curie"}, {"text": "Somewhere, something incredible is waiting to be known.", "author": "Carl Sagan"}, {"text": "Extraordinary claims require extraordinary evidence.", "author": "Carl Sagan"}, {"text": "The first principle is that you must not fool yourself — and you are the easiest person to fool.", "author": "Richard Feynman"}, {"text": "If I have seen further, it is by standing on the shoulders of giants.", "author": "Isaac Newton"}, {"text": "Chance favors the prepared mind.", "author": "Louis Pasteur"}, {"text": "The microbe is nothing; the terrain is everything.", "author": "Louis Pasteur"}, {"text": "One sometimes finds what one is not looking for.", "author": "Alexander Fleming"}, {"text": "It is not the strongest of the species that survives, but the one most responsive to change.", "author": "Charles Darwin"}, {"text": "Argus Panoptes never slept. Neither should surveillance.", "author": "Brown Beckley"}, {"text": "One pathogen at a time is how surveillance fails. Seven at once is how it works.", "author": "Brown Beckley"}, {"text": "Open data saves lives. Surveillance belongs to everyone.", "author": "Brown Beckley"}, {"text": "Where a pathogen comes from is half the story of where it goes next.", "author": "Brown Beckley"}];</script>
+<script>
+// ── Theme toggle ──
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    var btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    try { localStorage.setItem('argus-theme', theme); } catch(e){}
+}
+document.getElementById('theme-toggle')?.addEventListener('click', function() {
+    var cur = document.documentElement.getAttribute('data-theme');
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+});
+
+// ── Scroll progress bar ──
+(function() {
+    var bar = document.getElementById('scroll-progress');
+    if (!bar) return;
+    function update() {
+        var h = document.documentElement;
+        var max = h.scrollHeight - h.clientHeight;
+        var pct = max > 0 ? (h.scrollTop / max) * 100 : 0;
+        bar.style.width = pct + '%';
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+})();
+
+// ── Back to top ──
+(function() {
+    var btn = document.getElementById('back-to-top');
+    if (!btn) return;
+    function toggle() {
+        if (window.scrollY > 400) btn.classList.add('visible');
+        else btn.classList.remove('visible');
+    }
+    window.addEventListener('scroll', toggle, { passive: true });
+    btn.addEventListener('click', function() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    toggle();
+})();
+
+// ── Scroll reveal ──
+(function() {
+    var items = document.querySelectorAll('.reveal');
+    if (!items.length) return;
+    if (!('IntersectionObserver' in window)) {
+        items.forEach(function(el){ el.classList.add('revealed'); });
+        return;
+    }
+    var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+            if (e.isIntersecting) {
+                e.target.classList.add('revealed');
+                observer.unobserve(e.target);
+            }
+        });
+    }, { threshold: 0.15 });
+    items.forEach(function(el){ observer.observe(el); });
+})();
+
+// ── Copy-to-clipboard ──
+document.querySelectorAll('.copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+        var text = btn.closest('.cite-card')?.querySelector('.cite-body')?.innerText.trim();
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+            btn.classList.add('copied');
+            var orig = btn.textContent;
+            btn.textContent = '✓ Copied';
+            btn.setAttribute('aria-live', 'polite');
+            setTimeout(function(){ btn.classList.remove('copied'); btn.textContent = orig; }, 1800);
+        } catch (e) { btn.textContent = 'Copy failed'; }
+    });
+});
+
+// ── Quote rotation ──
+// Expects window.__ARGUS_QUOTES__ to already be defined (extra_js runs before this).
+(function() {
+    var banner = document.getElementById('quote-banner');
+    if (!banner) return;
+
+    var QUOTES = window.__ARGUS_QUOTES__;
+    if (!QUOTES || !QUOTES.length) {
+        // No quotes configured — hide the banner entirely rather than showing "Loading…"
+        banner.style.display = 'none';
+        return;
+    }
+
+    var textEl = document.getElementById('quote-text');
+    var authEl = document.getElementById('quote-author');
+    var dotsEl = document.getElementById('quote-dots');
+    if (!textEl || !authEl || !dotsEl) return;
+
+    var idx = Math.floor(Math.random() * QUOTES.length);
+    dotsEl.innerHTML = '';
+    QUOTES.forEach(function(_, i) {
+        var b = document.createElement('button');
+        b.className = 'quote-dot';
+        b.setAttribute('aria-label', 'Quote ' + (i + 1));
+        b.addEventListener('click', function(){ idx = i; show(idx); });
+        dotsEl.appendChild(b);
+    });
+    var dots = dotsEl.querySelectorAll('.quote-dot');
+
+    function show(i) {
+        textEl.textContent = QUOTES[i].text;
+        authEl.textContent = '— ' + QUOTES[i].author;
+        dots.forEach(function(d, k){ d.classList.toggle('active', k === i); });
+    }
+    function rotate() {
+        banner.classList.add('fading');
+        setTimeout(function() {
+            idx = (idx + 1) % QUOTES.length;
+            show(idx);
+            banner.classList.remove('fading');
+        }, 500);
+    }
+    show(idx);
+    setInterval(rotate, 9000);
+})();
+</script>
+</body>
+</html>
