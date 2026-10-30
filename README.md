@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Hosted on GitHub Pages](https://img.shields.io/badge/Hosted-GitHub%20Pages-brightgreen)](https://bbeckley-hub.github.io/argus/)
 
-**Live Platform:** [https://bbeckley-hub.github.io/argus/](https://bbeckley-hub.github.io/argus/)
+**Live Platform:** [https://argus-db.org/](https://argus-db.org/)
 
 ## Overview
 
